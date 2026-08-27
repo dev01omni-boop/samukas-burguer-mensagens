@@ -1,0 +1,8 @@
+{
+  "name": "visualizacao-de-mensagens",
+  "version": "1.0.0",
+  "description": "Visualização de Mensagens — Chat Viewer moderno estilo WhatsApp",
+  "scripts": {
+    "dev": "npx -y serve@latest . -p 3000 -s --no-clipboard"
+  }
+}
