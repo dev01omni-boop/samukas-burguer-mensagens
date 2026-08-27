@@ -280,6 +280,9 @@ function openInfoPanel() {
   const ultimaCompra = contact.lead_ultima_compra 
     ? new Date(contact.lead_ultima_compra).toLocaleDateString('pt-BR') 
     : 'Sem registros';
+  const dataDisparo = contact.data_disparo_mensagem 
+    ? new Date(contact.data_disparo_mensagem).toLocaleDateString('pt-BR') + ' ' + new Date(contact.data_disparo_mensagem).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'Não informada';
 
   infoPanelBody.innerHTML = `
     <div style="text-align: center; padding: 24px 16px; border-bottom: 1px solid var(--border);">
@@ -307,6 +310,11 @@ function openInfoPanel() {
       <div style="background: var(--bg-tertiary, rgba(255,255,255,0.03)); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
         <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600;">Última Compra</div>
         <div style="font-size: 14px; color: var(--text-primary); font-weight: 500;">${ultimaCompra}</div>
+      </div>
+
+      <div style="background: var(--bg-tertiary, rgba(255,255,255,0.03)); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;">
+        <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600;">Data do Disparo</div>
+        <div style="font-size: 14px; color: var(--text-primary); font-weight: 500;">${dataDisparo}</div>
       </div>
     </div>
   `;
@@ -657,7 +665,7 @@ function filterLeadsByPeriod(leads, period) {
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
   return leads.filter(lead => {
-    const dateStr = lead.lead_ultima_compra || lead.criado_em;
+    const dateStr = lead.data_disparo_mensagem || lead.criado_em || lead.lead_ultima_compra;
     if (!dateStr) return false;
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return false;
@@ -693,8 +701,8 @@ async function fetchKPIs() {
   try {
     const { data: leadsData, error } = await db
       .from('samukas_leads')
-      .select('lead_id, lead_nome, lead_telefone, lead_ativo, lead_comprou, compra_valor, lead_valor_total, lead_quantidade_pedidos, lead_ultima_compra, lead_mensagem')
-      .order('lead_ultima_compra', { ascending: false });
+      .select('lead_id, lead_nome, lead_telefone, lead_ativo, lead_comprou, compra_valor, lead_valor_total, lead_quantidade_pedidos, lead_ultima_compra, lead_mensagem, data_disparo_mensagem, criado_em')
+      .order('data_disparo_mensagem', { ascending: false });
 
     if (error) {
       console.error('Erro ao buscar dados de samukas_leads para KPIs:', error);
@@ -709,11 +717,14 @@ async function fetchKPIs() {
     const rawLeads = leadsData || [];
     const leads = filterLeadsByPeriod(rawLeads, state.periodFilter);
 
-    // 1. Disparos Realizados: Contagem de leads com lead_mensagem = "Mensagem 1"
+    // 1. Disparos Realizados: Contagem de leads com data_disparo_mensagem ou mensagem de disparo
     const disparosLeads = leads.filter(l => {
-      if (!l.lead_mensagem) return false;
-      const msgStr = String(l.lead_mensagem).trim().toLowerCase();
-      return msgStr.includes('mensagem 1');
+      if (l.data_disparo_mensagem) return true;
+      if (l.lead_mensagem) {
+        const msgStr = String(l.lead_mensagem).trim().toLowerCase();
+        return msgStr.includes('mensagem 1');
+      }
+      return false;
     });
 
     const totalDisparos = disparosLeads.length > 0 ? disparosLeads.length : leads.length;
