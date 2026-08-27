@@ -491,15 +491,14 @@ async function fetchLeads() {
   const { data: leadsData, error: leadsErr } = await db
     .from('samukas_leads')
     .select('*')
-    .eq('lead_ativo', true)
-    .order('lead_ultima_compra', { ascending: false });
+    .eq('lead_ativo', true);
 
   if (leadsErr) {
     console.error('Error fetching leads:', leadsErr);
     return;
   }
 
-  // Buscar mensagens para identificar os leads com mensagens e obter a prévia da última mensagem
+  // Buscar mensagens para identificar os leads com mensagens e obter a prévia da última mensagem e data criado_em
   const { data: messagesData, error: msgsErr } = await db
     .from('samukas_mensagens')
     .select('lead_id, mensagem_conteudo, criado_em')
@@ -519,17 +518,15 @@ async function fetchLeads() {
     }
   }
 
-  // Filtrar para incluir apenas os leads que possuem histórico de mensagens
-  let leadsList = (leadsData || [])
-    .filter(lead => latestMsgByLead.has(lead.lead_id))
-    .map(lead => {
-      const latest = latestMsgByLead.get(lead.lead_id);
-      return {
-        ...lead,
-        lead_mensagem: latest ? latest.mensagem_conteudo : (lead.lead_mensagem || ''),
-        criado_em: latest ? latest.criado_em : lead.lead_ultima_compra
-      };
-    });
+  // Incluir leads ativos
+  let leadsList = (leadsData || []).map(lead => {
+    const latest = latestMsgByLead.get(lead.lead_id);
+    return {
+      ...lead,
+      lead_mensagem: latest ? latest.mensagem_conteudo : (lead.lead_mensagem || ''),
+      criado_em: latest ? latest.criado_em : lead.lead_ultima_compra
+    };
+  });
 
   // Buscar se existem mensagens sem vínculo com nenhum lead (lead_id is null)
   const { data: noLeadMsgs, error: noLeadErr } = await db
@@ -550,6 +547,15 @@ async function fetchLeads() {
       is_no_lead: true
     });
   }
+
+  // Ordenar conversas das mais recentes para as mais antigas usando a coluna criado_em da tabela samukas_mensagens
+  leadsList.sort((a, b) => {
+    if (a.is_no_lead) return -1;
+    if (b.is_no_lead) return 1;
+    const timeA = a.criado_em ? new Date(a.criado_em).getTime() : 0;
+    const timeB = b.criado_em ? new Date(b.criado_em).getTime() : 0;
+    return timeB - timeA;
+  });
 
   state.leads = leadsList;
   renderChatList(searchInput.value);
@@ -687,7 +693,7 @@ async function fetchKPIs() {
   try {
     const { data: leadsData, error } = await db
       .from('samukas_leads')
-      .select('lead_id, lead_nome, lead_telefone, lead_ativo, lead_comprou, compra_valor, lead_valor_total, lead_quantidade_pedidos, lead_ultima_compra')
+      .select('lead_id, lead_nome, lead_telefone, lead_ativo, lead_comprou, compra_valor, lead_valor_total, lead_quantidade_pedidos, lead_ultima_compra, lead_mensagem')
       .order('lead_ultima_compra', { ascending: false });
 
     if (error) {
@@ -703,21 +709,27 @@ async function fetchKPIs() {
     const rawLeads = leadsData || [];
     const leads = filterLeadsByPeriod(rawLeads, state.periodFilter);
 
-    // 1. Disparos Realizados: Quantidade total de disparos n8n / leads processados no período
-    const totalDisparos = leads.length;
+    // 1. Disparos Realizados: Contagem de leads com lead_mensagem = "Mensagem 1"
+    const disparosLeads = leads.filter(l => {
+      if (!l.lead_mensagem) return false;
+      const msgStr = String(l.lead_mensagem).trim().toLowerCase();
+      return msgStr.includes('mensagem 1');
+    });
+
+    const totalDisparos = disparosLeads.length > 0 ? disparosLeads.length : leads.length;
 
     // 2. Vendas Convertidas: Quantidade de pedidos gerados onde lead_comprou = true
     const compradores = leads.filter(l => Boolean(l.lead_comprou));
     const vendasConvertidas = compradores.length;
 
-    // 3. Faturamento Gerado: Valor total em R$ das vendas atribuídas aos disparos
+    // 3. Faturamento Gerado: Valor total das vendas atribuídas aos disparos
     const faturamentoGeradoVal = compradores.reduce((sum, l) => {
       const val = l.compra_valor != null ? Number(l.compra_valor) : Number(l.lead_valor_total || 0);
       return sum + (isNaN(val) ? 0 : val);
     }, 0);
     const faturamentoStr = faturamentoGeradoVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-    // 4. Taxa de Conversão (%): Porcentagem de leads que compraram após o disparo
+    // 4. Taxa de Conversão (%): Porcentagem de conversões sobre os disparos
     const taxaConversaoVal = totalDisparos > 0 ? (vendasConvertidas / totalDisparos) * 100 : 0;
     const taxaConversaoStr = taxaConversaoVal.toFixed(1).replace('.', ',') + '%';
 
@@ -801,7 +813,7 @@ function renderKPICards(kpi) {
         </div>
       </div>
       <div class="kpi-card-value">${kpi.disparos}</div>
-      <div class="kpi-card-subtext">Total de mensagens disparadas (n8n)</div>
+      <div class="kpi-card-subtext">Total de mensagens disparadas</div>
     </div>
 
     <!-- Card 2: Vendas Convertidas -->
@@ -857,7 +869,6 @@ function initRealtime() {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
           }, 50);
         }
-        fetchLeads(); // Refresh leads for previews and ordering
       }
     )
     .on(
