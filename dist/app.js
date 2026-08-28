@@ -1010,8 +1010,15 @@ function renderKPICards(kpi) {
   `;
 }
 
+let realtimeChannel = null;
+
 function initRealtime() {
-  db.channel('samukas_realtime')
+  if (realtimeChannel) {
+    try { db.removeChannel(realtimeChannel); } catch(e) {}
+    realtimeChannel = null;
+  }
+
+  realtimeChannel = db.channel('samukas_realtime_' + Date.now())
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'samukas_mensagens' },
@@ -1041,7 +1048,12 @@ function initRealtime() {
 // =============================================
 // EVENT LISTENERS
 // =============================================
+let chatInitialized = false;
+
 function initChat() {
+  if (chatInitialized) return;
+  chatInitialized = true;
+
   // Apply saved theme
   applyTheme(state.theme);
 
