@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Samukas Burger — Mensagens</title>
-  <meta name="description" content="Samukas Burger — Visualize suas mensagens e pedidos em um painel moderno e elegante." />
+  <title>Samukas Burger — Mensagens & Pedidos</title>
+  <meta name="description" content="Samukas Burger — Visualize suas mensagens, métricas e pedidos em um painel moderno e elegante." />
   <link rel="icon" type="image/png" href="Logo.PNG" />
   <link rel="apple-touch-icon" href="Logo.PNG" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=25" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=26" />
 </head>
 <body>
   <!-- Global Background -->
@@ -28,7 +28,7 @@
           <img src="Logo.PNG" alt="Samukas Burger Logo" style="width: 100%; height: 100%; object-fit: contain; background: transparent; border: none;" />
         </div>
         <h1 class="login-title"><span style="color: #e63946;">SAMUKAS</span> <span style="color: #ffcc00;">BURGER</span></h1>
-        <p class="login-subtitle">Faça login para acessar suas mensagens</p>
+        <p class="login-subtitle">Faça login para acessar o painel</p>
       </div>
 
       <form id="login-form" class="login-form" autocomplete="off">
@@ -67,11 +67,10 @@
           </div>
         </button>
       </form>
-
-
     </div>
   </div>
 
+  <!-- App Main Screen -->
   <div id="app" class="app hidden">
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar">
@@ -141,28 +140,35 @@
           <div id="kpi-cards-container" class="kpi-grid"></div>
         </section>
 
-        <!-- Extra Analytics Details Section -->
+        <!-- Extra Analytics Details Section: Orders & Purchased Items -->
         <section class="analytics-details-section">
-
-          <!-- Recent Buyers Table -->
+          <!-- Recent Orders with Items Card -->
           <div class="analytics-card recent-buyers-card">
-            <div class="analytics-card-header">
-              <h3>Compradores Recentes (Base Convertida)</h3>
+            <div class="analytics-card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h3 style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffcc00" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                  Pedidos & Itens Comprados (Cupom SMK15)
+                </h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Detalhamento exato de todos os produtos, opções e adicionais comprados por cada cliente</p>
+              </div>
+              <span id="orders-count-badge" class="kpi-badge" style="background: rgba(255, 204, 0, 0.15); border-color: rgba(255, 204, 0, 0.35); color: #ffcc00;">0 Pedidos</span>
             </div>
             <div class="table-responsive">
               <table class="buyers-table">
                 <thead>
                   <tr>
-                    <th>Cliente</th>
-                    <th>Telefone</th>
-                    <th>Pedidos</th>
-                    <th>Valor Acumulado</th>
-                    <th>Última Compra</th>
+                    <th style="min-width: 160px;">Cliente</th>
+                    <th style="min-width: 280px;">Itens do Pedido & Opções</th>
+                    <th style="min-width: 100px;">Valor</th>
+                    <th style="min-width: 100px;">Cupom</th>
+                    <th style="min-width: 120px;">Data / Hora</th>
+                    <th style="min-width: 100px; text-align: center;">Ação</th>
                   </tr>
                 </thead>
                 <tbody id="recent-buyers-tbody">
                   <tr>
-                    <td colspan="5" style="text-align: center; color: var(--text-tertiary); padding: 20px;">Carregando dados dos compradores...</td>
+                    <td colspan="6" style="text-align: center; color: var(--text-tertiary); padding: 24px;">Carregando pedidos e itens...</td>
                   </tr>
                 </tbody>
               </table>
@@ -249,7 +255,7 @@
       return false;
     };
   </script>
-  <script src="config.js?v=25"></script>
-  <script src="app.js?v=25"></script>
+  <script src="config.js?v=26"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>
