@@ -1025,7 +1025,7 @@ async function fetchKPIs() {
       vendasConvertidas
     });
 
-    // Renderizar tabela rica de pedidos e itens comprados
+    // Renderizar tabela de pedidos e itens comprados
     const tbody = $('#recent-buyers-tbody');
     if (tbody) {
       if (vendas.length === 0) {
@@ -1033,7 +1033,9 @@ async function fetchKPIs() {
       } else {
         tbody.innerHTML = vendas.map(v => {
           const nomeCliente = v.cliente_nome ? v.cliente_nome.trim() : 'Cliente Anônimo';
-          const telefone = v.cliente_telefone ? v.cliente_telefone : 'Não informado';
+          const telVal = v.cliente_telefone ? String(v.cliente_telefone).trim() : '';
+          const hasPhone = telVal && telVal !== 'null' && telVal !== 'Não informado' && telVal.length > 0;
+          
           const valorFormatado = Number(v.total_vendido || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
           const cupom = v.cupom_desconto || 'SMK15';
           
@@ -1042,7 +1044,7 @@ async function fetchKPIs() {
             ? `${dataObj.toLocaleDateString('pt-BR')} <span style="color: var(--text-tertiary); font-size: 0.75rem;">${dataObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` 
             : 'Data não informada';
 
-          // Itens do Pedido Formatados
+          // Itens do Pedido Formatados (Direto e Limpo: Apenas produtos e quantidades)
           const itens = Array.isArray(v.itens_pedido) ? v.itens_pedido : [];
           let itensHtml = '';
 
@@ -1050,41 +1052,14 @@ async function fetchKPIs() {
             itensHtml = `<span style="color: var(--text-tertiary); font-style: italic; font-size: 0.8rem;">Itens não especificados</span>`;
           } else {
             itensHtml = `
-              <div class="order-items-container">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
                 ${itens.map(item => {
                   const itemNome = item.nome || 'Produto';
                   const itemQtd = Number(item.quantidade || 1);
-                  const itemPreco = Number(item.preco_unitario || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                  
-                  const opcoes = Array.isArray(item.opcoes) ? item.opcoes : [];
-                  const opcoesHtml = opcoes.length > 0 ? `
-                    <div class="order-choices-wrapper">
-                      ${opcoes.map(op => `
-                        <span class="order-choice-chip" title="Opção/Adicional">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                          ${op.nome || 'Opção'}
-                        </span>
-                      `).join('')}
-                    </div>
-                  ` : '';
-
-                  const obsHtml = item.observacoes ? `
-                    <div class="order-notes-box">
-                      💬 ${item.observacoes}
-                    </div>
-                  ` : '';
-
                   return `
-                    <div class="order-product-card">
-                      <div class="order-product-header">
-                        <div>
-                          <span class="order-product-qty">${itemQtd}x</span>
-                          <span class="order-product-name">${itemNome}</span>
-                        </div>
-                        <span class="order-product-price">${itemPreco}</span>
-                      </div>
-                      ${opcoesHtml}
-                      ${obsHtml}
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--text-primary);">
+                      <span class="order-product-qty">${itemQtd}x</span>
+                      <span style="font-weight: 500;">${itemNome}</span>
                     </div>
                   `;
                 }).join('')}
@@ -1097,7 +1072,7 @@ async function fetchKPIs() {
               <td>
                 <div style="display: flex; flex-direction: column; gap: 2px;">
                   <strong style="color: var(--text-primary); font-size: 0.92rem;">${nomeCliente}</strong>
-                  <span style="color: var(--text-tertiary); font-size: 0.78rem;">${telefone}</span>
+                  ${hasPhone ? `<span style="color: var(--text-tertiary); font-size: 0.78rem;">${telVal}</span>` : ''}
                 </div>
               </td>
               <td>${itensHtml}</td>
@@ -1113,6 +1088,95 @@ async function fetchKPIs() {
             </tr>
           `;
         }).join('');
+      }
+    }
+
+    // =============================================
+    // PRODUTOS MAIS VENDIDOS & INSIGHTS DE PRODUTOS
+    // =============================================
+    const productStatsMap = new Map();
+    const choicesStatsMap = new Map();
+
+    for (const v of vendas) {
+      const itens = Array.isArray(v.itens_pedido) ? v.itens_pedido : [];
+      for (const item of itens) {
+        const nome = item.nome || 'Produto';
+        const qtd = Number(item.quantidade || 1);
+        const precoUnit = Number(item.preco_unitario || 0);
+        const totalRev = qtd * precoUnit;
+
+        const current = productStatsMap.get(nome) || { nome, qtd: 0, faturamento: 0 };
+        current.qtd += qtd;
+        current.faturamento += totalRev;
+        productStatsMap.set(nome, current);
+
+        // Agrega escolhas/adicionais
+        const opcoes = Array.isArray(item.opcoes) ? item.opcoes : [];
+        for (const op of opcoes) {
+          const opNome = (op.nome || '').trim();
+          if (opNome) {
+            choicesStatsMap.set(opNome, (choicesStatsMap.get(opNome) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    const topProductsList = $('#top-products-list');
+    const topChoicesList = $('#top-choices-list');
+
+    // Renderizar Top Produtos Mais Vendidos
+    if (topProductsList) {
+      const sortedProducts = Array.from(productStatsMap.values()).sort((a, b) => b.qtd - a.qtd || b.faturamento - a.faturamento);
+
+      if (sortedProducts.length === 0) {
+        topProductsList.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 20px; font-size: 0.85rem;">Nenhum produto registrado no período.</div>`;
+      } else {
+        const maxQty = sortedProducts[0].qtd || 1;
+
+        topProductsList.innerHTML = sortedProducts.map((p, idx) => {
+          let rankClass = 'rank-other';
+          let rankText = `#${idx + 1}`;
+          if (idx === 0) { rankClass = 'rank-1'; rankText = '1º'; }
+          else if (idx === 1) { rankClass = 'rank-2'; rankText = '2º'; }
+          else if (idx === 2) { rankClass = 'rank-3'; rankText = '3º'; }
+
+          const pct = Math.min(100, Math.max(12, Math.round((p.qtd / maxQty) * 100)));
+          const revStr = p.faturamento > 0 ? p.faturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
+
+          return `
+            <div class="top-product-row">
+              <div class="top-product-main">
+                <div class="top-product-info">
+                  <span class="rank-badge ${rankClass}">${rankText}</span>
+                  <span class="top-product-name" title="${p.nome}">${p.nome}</span>
+                </div>
+                <div class="top-product-stats">
+                  <span class="top-product-qty">${p.qtd} ${p.qtd === 1 ? 'unidade' : 'unidades'}</span>
+                  ${revStr ? `<span class="top-product-revenue">${revStr}</span>` : ''}
+                </div>
+              </div>
+              <div class="product-progress-track">
+                <div class="product-progress-fill" style="width: ${pct}%;"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // Renderizar Adicionais & Escolhas Mais Populares
+    if (topChoicesList) {
+      const sortedChoices = Array.from(choicesStatsMap.entries()).sort((a, b) => b[1] - a[1]);
+
+      if (sortedChoices.length === 0) {
+        topChoicesList.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 20px; font-size: 0.85rem;">Nenhuma opção registrada no período.</div>`;
+      } else {
+        topChoicesList.innerHTML = sortedChoices.map(([nome, count]) => `
+          <div class="top-choice-tag" title="${count} ${count === 1 ? 'vez escolhido' : 'vezes escolhido'}">
+            <span>${nome}</span>
+            <span class="top-choice-count">${count}x</span>
+          </div>
+        `).join('');
       }
     }
 

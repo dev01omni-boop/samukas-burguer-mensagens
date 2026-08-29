@@ -148,9 +148,9 @@
               <div>
                 <h3 style="display: flex; align-items: center; gap: 8px;">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffcc00" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                  Pedidos & Itens Comprados (Cupom SMK15)
+                  Pedidos Realizados (Cupom SMK15)
                 </h3>
-                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Detalhamento exato de todos os produtos, opções e adicionais comprados por cada cliente</p>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Lista de compras com produtos adquiridos por cada cliente</p>
               </div>
               <span id="orders-count-badge" class="kpi-badge" style="background: rgba(255, 204, 0, 0.15); border-color: rgba(255, 204, 0, 0.35); color: #ffcc00;">0 Pedidos</span>
             </div>
@@ -159,11 +159,11 @@
                 <thead>
                   <tr>
                     <th style="min-width: 160px;">Cliente</th>
-                    <th style="min-width: 280px;">Itens do Pedido & Opções</th>
+                    <th style="min-width: 240px;">Itens do Pedido</th>
                     <th style="min-width: 100px;">Valor</th>
-                    <th style="min-width: 100px;">Cupom</th>
+                    <th style="min-width: 90px;">Cupom</th>
                     <th style="min-width: 120px;">Data / Hora</th>
-                    <th style="min-width: 100px; text-align: center;">Ação</th>
+                    <th style="min-width: 90px; text-align: center;">Ação</th>
                   </tr>
                 </thead>
                 <tbody id="recent-buyers-tbody">
@@ -172,6 +172,39 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Product Analytics: Top Selling Items & Preferences -->
+        <section class="analytics-details-section" style="padding-top: 0;">
+          <div class="product-analytics-grid">
+            <!-- Card 1: Top Produtos Mais Pedidos -->
+            <div class="analytics-card top-products-card">
+              <div class="analytics-card-header">
+                <h3 style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e63946" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  Top Produtos Mais Vendidos
+                </h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Itens com maior quantidade de pedidos e faturamento gerado</p>
+              </div>
+              <div id="top-products-list" class="top-products-list">
+                <div style="text-align: center; color: var(--text-tertiary); padding: 20px; font-size: 0.85rem;">Carregando produtos mais vendidos...</div>
+              </div>
+            </div>
+
+            <!-- Card 2: Opções & Adicionais Mais Escolhidos -->
+            <div class="analytics-card product-insights-card">
+              <div class="analytics-card-header">
+                <h3 style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ec4b6" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                  Adicionais & Escolhas Mais Populares
+                </h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Opções de lanches, bebidas e complementos preferidos pelos clientes</p>
+              </div>
+              <div id="top-choices-list" class="top-choices-list">
+                <div style="text-align: center; color: var(--text-tertiary); padding: 20px; font-size: 0.85rem;">Carregando opções mais pedidas...</div>
+              </div>
             </div>
           </div>
         </section>
