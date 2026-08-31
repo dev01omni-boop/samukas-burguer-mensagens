@@ -7,7 +7,10 @@ let state = {
   infoPanelOpen: false,
   leads: [],
   currentMessages: [],
-  periodFilter: '7dias'
+  periodFilter: '7dias',
+  ordersPage: 1,
+  ordersPerPage: 10,
+  currentFilteredVendas: []
 };
 
 // =============================================
@@ -1025,71 +1028,10 @@ async function fetchKPIs() {
       vendasConvertidas
     });
 
-    // Renderizar tabela de pedidos e itens comprados
-    const tbody = $('#recent-buyers-tbody');
-    if (tbody) {
-      if (vendas.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-tertiary); padding: 30px;">Nenhum pedido registrado no período selecionado.</td></tr>`;
-      } else {
-        tbody.innerHTML = vendas.map(v => {
-          const nomeCliente = v.cliente_nome ? v.cliente_nome.trim() : 'Cliente Anônimo';
-          const telVal = v.cliente_telefone ? String(v.cliente_telefone).trim() : '';
-          const hasPhone = telVal && telVal !== 'null' && telVal !== 'Não informado' && telVal.length > 0;
-          
-          const valorFormatado = Number(v.total_vendido || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-          const cupom = v.cupom_desconto || 'SMK15';
-          
-          const dataObj = v.criado_em ? new Date(v.criado_em) : null;
-          const dataFormatada = dataObj 
-            ? `${dataObj.toLocaleDateString('pt-BR')} <span style="color: var(--text-tertiary); font-size: 0.75rem;">${dataObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` 
-            : 'Data não informada';
+    // Salvar vendas filtradas no estado e renderizar tabela paginada
+    state.currentFilteredVendas = vendas;
+    renderOrdersTable();
 
-          // Itens do Pedido Formatados (Direto e Limpo: Apenas produtos e quantidades)
-          const itens = Array.isArray(v.itens_pedido) ? v.itens_pedido : [];
-          let itensHtml = '';
-
-          if (itens.length === 0) {
-            itensHtml = `<span style="color: var(--text-tertiary); font-style: italic; font-size: 0.8rem;">Itens não especificados</span>`;
-          } else {
-            itensHtml = `
-              <div style="display: flex; flex-direction: column; gap: 4px;">
-                ${itens.map(item => {
-                  const itemNome = item.nome || 'Produto';
-                  const itemQtd = Number(item.quantidade || 1);
-                  return `
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--text-primary);">
-                      <span class="order-product-qty">${itemQtd}x</span>
-                      <span style="font-weight: 500;">${itemNome}</span>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            `;
-          }
-
-          return `
-            <tr>
-              <td>
-                <div style="display: flex; flex-direction: column; gap: 2px;">
-                  <strong style="color: var(--text-primary); font-size: 0.92rem;">${nomeCliente}</strong>
-                  ${hasPhone ? `<span style="color: var(--text-tertiary); font-size: 0.78rem;">${telVal}</span>` : ''}
-                </div>
-              </td>
-              <td>${itensHtml}</td>
-              <td><strong style="color: #ffcc00; font-size: 0.95rem;">${valorFormatado}</strong></td>
-              <td><span class="badge-coupon-smk15">🎟️ ${cupom}</span></td>
-              <td>${dataFormatada}</td>
-              <td style="text-align: center;">
-                <button class="btn-table-action" onclick="openChatFromTable('${v.lead_id || ''}')" title="Abrir conversa no chat">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  <span>Chat</span>
-                </button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-      }
-    }
 
     // =============================================
     // PRODUTOS MAIS VENDIDOS & INSIGHTS DE PRODUTOS
@@ -1244,6 +1186,154 @@ function renderKPICards(kpi) {
   `;
 }
 
+// =============================================
+// ORDERS TABLE & PAGINATION (10 per page)
+// =============================================
+function renderOrdersTable() {
+  const tbody = $('#recent-buyers-tbody');
+  const countBadge = $('#orders-count-badge');
+  const paginationContainer = $('#orders-pagination-container');
+  const paginationInfo = $('#orders-pagination-info');
+  const paginationPages = $('#orders-pagination-pages');
+  const btnPrev = $('#btn-orders-prev');
+  const btnNext = $('#btn-orders-next');
+
+  const vendas = state.currentFilteredVendas || [];
+  const totalOrders = vendas.length;
+  const perPage = state.ordersPerPage || 10;
+  const totalPages = Math.ceil(totalOrders / perPage) || 1;
+
+  if (state.ordersPage > totalPages) {
+    state.ordersPage = totalPages;
+  }
+  if (state.ordersPage < 1) {
+    state.ordersPage = 1;
+  }
+
+  if (countBadge) {
+    countBadge.textContent = `${totalOrders} ${totalOrders === 1 ? 'Pedido' : 'Pedidos'}`;
+  }
+
+  if (!tbody) return;
+
+  if (totalOrders === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-tertiary); padding: 30px;">Nenhum pedido registrado no período selecionado.</td></tr>`;
+    if (paginationContainer) paginationContainer.classList.add('hidden');
+    return;
+  }
+
+  if (paginationContainer) paginationContainer.classList.remove('hidden');
+
+  const startIndex = (state.ordersPage - 1) * perPage;
+  const endIndex = Math.min(startIndex + perPage, totalOrders);
+  const pageVendas = vendas.slice(startIndex, endIndex);
+
+  tbody.innerHTML = pageVendas.map(v => {
+    const nomeCliente = v.cliente_nome ? v.cliente_nome.trim() : 'Cliente Anônimo';
+    const telVal = v.cliente_telefone ? String(v.cliente_telefone).trim() : '';
+    const hasPhone = telVal && telVal !== 'null' && telVal !== 'Não informado' && telVal.length > 0;
+    
+    const valorFormatado = Number(v.total_vendido || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const cupom = v.cupom_desconto || 'SMK15';
+    
+    const dataObj = v.criado_em ? new Date(v.criado_em) : null;
+    const dataFormatada = dataObj 
+      ? `${dataObj.toLocaleDateString('pt-BR')} <span style="color: var(--text-tertiary); font-size: 0.75rem;">${dataObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` 
+      : 'Data não informada';
+
+    // Itens do Pedido Formatados (Direto e Limpo: Apenas produtos e quantidades)
+    const itens = Array.isArray(v.itens_pedido) ? v.itens_pedido : [];
+    let itensHtml = '';
+
+    if (itens.length === 0) {
+      itensHtml = `<span style="color: var(--text-tertiary); font-style: italic; font-size: 0.8rem;">Itens não especificados</span>`;
+    } else {
+      itensHtml = `
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          ${itens.map(item => {
+            const itemNome = item.nome || 'Produto';
+            const itemQtd = Number(item.quantidade || 1);
+            return `
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--text-primary);">
+                <span class="order-product-qty">${itemQtd}x</span>
+                <span style="font-weight: 500;">${itemNome}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    return `
+      <tr>
+        <td>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <strong style="color: var(--text-primary); font-size: 0.92rem;">${nomeCliente}</strong>
+            ${hasPhone ? `<span style="color: var(--text-tertiary); font-size: 0.78rem;">${telVal}</span>` : ''}
+          </div>
+        </td>
+        <td>${itensHtml}</td>
+        <td><strong style="color: #ffcc00; font-size: 0.95rem;">${valorFormatado}</strong></td>
+        <td><span class="badge-coupon-smk15">🎟️ ${cupom}</span></td>
+        <td>${dataFormatada}</td>
+        <td style="text-align: center;">
+          <button class="btn-table-action" onclick="openChatFromTable('${v.lead_id || ''}')" title="Abrir conversa no chat">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>Chat</span>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Pagination Info
+  if (paginationInfo) {
+    paginationInfo.textContent = `Mostrando ${startIndex + 1}–${endIndex} de ${totalOrders} pedidos`;
+  }
+
+  // Prev / Next buttons state & handlers
+  if (btnPrev) {
+    btnPrev.disabled = state.ordersPage <= 1;
+    btnPrev.onclick = () => {
+      if (state.ordersPage > 1) {
+        state.ordersPage--;
+        renderOrdersTable();
+      }
+    };
+  }
+
+  if (btnNext) {
+    btnNext.disabled = state.ordersPage >= totalPages;
+    btnNext.onclick = () => {
+      if (state.ordersPage < totalPages) {
+        state.ordersPage++;
+        renderOrdersTable();
+      }
+    };
+  }
+
+  // Page Numbers
+  if (paginationPages) {
+    if (totalPages <= 1) {
+      paginationPages.innerHTML = '';
+    } else {
+      let pagesHtml = '';
+      for (let p = 1; p <= totalPages; p++) {
+        pagesHtml += `
+          <button class="pagination-page-btn ${p === state.ordersPage ? 'active' : ''}" onclick="goToOrdersPage(${p})">${p}</button>
+        `;
+      }
+      paginationPages.innerHTML = pagesHtml;
+    }
+  }
+}
+
+window.goToOrdersPage = function(pageNumber) {
+  state.ordersPage = pageNumber;
+  renderOrdersTable();
+};
+
+
 let realtimeChannel = null;
 
 function initRealtime() {
@@ -1322,6 +1412,7 @@ function initChat() {
       periodBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.periodFilter = btn.dataset.period;
+      state.ordersPage = 1;
       fetchKPIs();
     });
   });
