@@ -25,7 +25,10 @@
   --accent-hover: #ff4757;
   --accent-light: rgba(230, 57, 70, 0.12);
   --accent-gradient: linear-gradient(135deg, #e63946, #ff6b6b);
-  
+
+  --accent-secondary: #ffcc00;
+  --accent-secondary-light: rgba(255, 204, 0, 0.15);
+
   --border: #2a2a2a;
   --border-light: rgba(255, 255, 255, 0.06);
   
@@ -47,6 +50,7 @@
   --typing: #a0a0a0;
   
   /* Sizes */
+  --mobile-nav-height: 68px;
   --sidebar-width: 380px;
   --header-height: 64px;
   --input-height: 64px;
@@ -97,7 +101,10 @@
   --accent-hover: #ff4757;
   --accent-light: rgba(230, 57, 70, 0.18);
   --accent-gradient: linear-gradient(135deg, #e63946, #ff6b6b);
-  
+
+  --accent-secondary: #ffcc00;
+  --accent-secondary-light: rgba(255, 204, 0, 0.15);
+
   --border: #1f1f1f;
   --border-light: rgba(255, 255, 255, 0.04);
   
@@ -173,38 +180,32 @@ input, button {
 }
 
 /* =============================================
-   SIDEBAR
+   NAV RAIL (global — logo, pages, logout)
    ============================================= */
-.sidebar {
-  width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
+.nav-rail {
+  width: 240px;
+  min-width: 240px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  transition: transform var(--transition-slow), background var(--transition-base);
   z-index: 10;
   backdrop-filter: blur(12px);
+  transition: background var(--transition-base);
 }
 
-.sidebar-header {
+.nav-rail-brand {
   height: var(--header-height);
-  padding: 0 16px;
+  padding: 0 18px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   background: var(--header-bg);
   border-bottom: 1px solid var(--border);
   transition: background var(--transition-base);
 }
 
-.sidebar-user {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.user-avatar {
+.nav-rail-logo {
   width: var(--avatar-sm);
   height: var(--avatar-sm);
   border-radius: var(--radius-full);
@@ -213,20 +214,81 @@ input, button {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-size: var(--font-md);
   flex-shrink: 0;
 }
 
-.sidebar-title {
-  font-size: var(--font-xl);
+.nav-rail-brand-text {
+  font-size: 0.95rem;
   font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
 }
 
-.sidebar-actions {
+.nav-rail-items {
+  flex: 1;
   display: flex;
+  flex-direction: column;
   gap: 4px;
+  padding: 16px 12px;
+}
+
+.nav-rail-footer {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.nav-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.nav-rail-item svg {
+  flex-shrink: 0;
+}
+
+.nav-rail-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.nav-rail-item.active {
+  background: var(--accent-light);
+  border-color: rgba(230, 57, 70, 0.35);
+  color: #ff6b6b;
+  box-shadow: var(--shadow-glow);
+}
+
+/* Icon Button */
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+.icon-btn:hover {
+  background: var(--surface-active);
+  color: var(--text-primary);
+}
+.icon-btn:active {
+  transform: scale(0.92);
 }
 
 /* Icon Button */
@@ -427,17 +489,13 @@ input, button {
 /* =============================================
    CHAT AREA
    ============================================= */
-.chat-area {
+.content-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   position: relative;
-  background: var(--bg-chat);
-  backdrop-filter: blur(12px);
-  background-image: var(--bg-pattern);
-  position: relative;
   min-width: 0;
-  transition: background var(--transition-base);
+  background: var(--bg-primary);
 }
 
 /* Empty State */
@@ -684,6 +742,31 @@ input, button {
 }
 .message-media img:hover {
   transform: scale(1.02);
+}
+
+.message-template-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+.message-template-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.message-template-button::before {
+  content: '🔗';
+  font-size: 0.85em;
 }
 
 .message-footer {
@@ -984,43 +1067,6 @@ input, button {
 /* =============================================
    RESPONSIVE
    ============================================= */
-@media (max-width: 768px) {
-  .sidebar {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 100%;
-    min-width: 100%;
-    z-index: 20;
-  }
-  
-  .sidebar.hide-mobile {
-    transform: translateX(-100%);
-  }
-  
-  .back-btn {
-    display: flex;
-  }
-  
-  .messages-container {
-    padding: 12px 16px;
-  }
-  
-  .message {
-    max-width: 85%;
-  }
-  
-  .info-panel.open {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 100%;
-    z-index: 25;
-  }
-}
-
 @media (max-width: 1024px) and (min-width: 769px) {
   :root {
     --sidebar-width: 320px;
@@ -1435,6 +1481,14 @@ input, button {
   animation: fadeIn 0.3s ease;
 }
 
+.form-error.form-success {
+  color: #2ec4b6;
+}
+
+.form-options-end {
+  justify-content: flex-end;
+}
+
 /* Success animation on login */
 .login-screen .login-card.success {
   border-color: rgba(230, 57, 70, 0.4);
@@ -1497,6 +1551,15 @@ input, button {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.kpi-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .kpi-badge {
@@ -1751,72 +1814,101 @@ input, button {
 }
 
 /* =============================================
-   SIDEBAR NAVIGATION TABS & VIEW SWITCHER
+   PAGES (DASHBOARD / CONVERSAS / CONFIGURAÇÕES)
    ============================================= */
-.sidebar-nav {
-  padding: 10px 14px;
-  display: flex;
-  gap: 8px;
-  background: rgba(20, 20, 24, 0.4);
-  border-bottom: 1px solid var(--border);
-}
-
-.nav-tab {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border-radius: 12px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-secondary);
-  font-size: 0.84rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.nav-tab:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-}
-
-.nav-tab.active {
-  background: rgba(230, 57, 70, 0.15);
-  border-color: rgba(230, 57, 70, 0.35);
-  color: #ff6b6b;
-  box-shadow: 0 2px 8px rgba(230, 57, 70, 0.2);
-}
-
-/* =============================================
-   MAIN SEPARATED VIEWS (DASHBOARD & CHAT)
-   ============================================= */
-.main-view {
+.page {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.main-view.hidden {
+.page.hidden {
   display: none !important;
 }
 
-/* Dedicated Dashboard View */
-.view-dashboard {
+.page-header {
+  padding: 28px 28px 0;
+}
+
+.page-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.page-subtitle {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* Dashboard & Configurações: single scrollable column, clean background */
+.view-dashboard,
+.view-config {
   flex: 1;
   overflow-y: auto;
   padding-bottom: 40px;
-  background: var(--bg-chat);
+  background: var(--bg-primary);
 }
 
-/* Clean Chat View */
+.view-config {
+  padding: 0 28px 40px;
+  gap: 20px;
+}
+
+.view-config .page-header {
+  padding: 28px 0 0;
+}
+
+/* Conversas: two-pane layout scoped to this page only */
 .view-chat {
   flex: 1;
+  flex-direction: row;
   position: relative;
   overflow: hidden;
+}
+
+.conversation-list-pane {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition-slow);
+}
+
+.conversation-list-header {
+  height: var(--header-height);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.conversation-list-header .page-title {
+  font-size: var(--font-xl);
+}
+
+.conversation-thread-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--bg-chat);
+  backdrop-filter: blur(12px);
+  background-image: var(--bg-pattern);
+  min-width: 0;
+  transition: background var(--transition-base);
 }
 
 /* =============================================
@@ -2267,7 +2359,7 @@ input, button {
    ============================================= */
 .product-analytics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
   gap: 20px;
 }
 
@@ -2387,6 +2479,15 @@ input, button {
   background: linear-gradient(90deg, #e63946, #ffcc00);
   border-radius: 3px;
   transition: width 0.6s ease;
+}
+
+.top-choice-qty {
+  color: #2ec4b6 !important;
+  background: rgba(46, 196, 182, 0.15) !important;
+}
+
+.choice-progress-fill {
+  background: linear-gradient(90deg, #2ec4b6, #6de0d3) !important;
 }
 
 .top-choices-list {
@@ -2515,6 +2616,454 @@ input, button {
   border-color: #ffcc00;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(255, 204, 0, 0.3);
+}
+
+/* =============================================
+   SETTINGS / TEMPLATE CONFIG
+   ============================================= */
+.template-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.template-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  text-align: left;
+  background: rgba(32, 32, 38, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.template-option:hover:not(.active) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(32, 32, 38, 0.85);
+}
+
+.template-option.active {
+  border-color: #ffcc00;
+  background: rgba(255, 204, 0, 0.08);
+  box-shadow: 0 2px 12px rgba(255, 204, 0, 0.15);
+}
+
+.template-option:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.template-option-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.template-option-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.template-option-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.template-option-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.template-option-check {
+  opacity: 0;
+  color: #ffcc00;
+  font-weight: 800;
+  font-size: 1.1rem;
+  transition: opacity var(--transition-fast);
+}
+
+.template-option.active .template-option-check {
+  opacity: 1;
+}
+
+.template-config-status {
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  min-height: 1.2em;
+}
+
+.template-config-status.success {
+  color: #2ec4b6;
+}
+
+.template-config-status.error {
+  color: var(--accent);
+}
+
+/* =============================================
+   TEMPLATE PREVIEWS (Configurações)
+   ============================================= */
+.template-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.template-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.template-preview-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.template-preview-phone {
+  background: var(--bg-chat);
+  background-image: var(--bg-pattern);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+}
+
+.template-preview-phone .message {
+  max-width: 100%;
+  width: 100%;
+}
+
+/* =============================================
+   PENDING LEADS INDICATOR (Dashboard toolbar)
+   ============================================= */
+.pending-leads-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pending-leads-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.pending-leads-indicator.has-pending {
+  background: rgba(46, 196, 182, 0.12);
+  border-color: rgba(46, 196, 182, 0.3);
+  color: #2ec4b6;
+}
+.pending-leads-indicator.has-pending .pending-leads-dot {
+  background: #2ec4b6;
+  box-shadow: 0 0 8px rgba(46, 196, 182, 0.6);
+  animation: badgePop 0.3s ease;
+}
+
+.pending-leads-indicator.no-pending {
+  color: var(--text-tertiary);
+}
+
+.pending-leads-indicator.error {
+  background: rgba(230, 57, 70, 0.12);
+  border-color: rgba(230, 57, 70, 0.3);
+  color: #ff6b6b;
+}
+
+/* =============================================
+   LEAD IMPORT (Configurações)
+   ============================================= */
+.import-file-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 20px;
+  border: 2px dashed rgba(46, 196, 182, 0.35);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition-fast);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.import-file-drop:hover {
+  border-color: rgba(46, 196, 182, 0.6);
+  background: rgba(46, 196, 182, 0.06);
+}
+
+.import-file-drop small {
+  color: var(--text-tertiary);
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+.import-step-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 20px 0 12px;
+}
+
+.import-mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.import-mapping-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(32, 32, 38, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.import-mapping-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.import-mapping-field label .required-mark {
+  color: var(--accent);
+  margin-left: 2px;
+}
+
+.import-mapping-field select {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 0.82rem;
+  min-width: 0;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+#import-preview-table th, #import-preview-table td {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+/* =============================================
+   MOBILE OPTIMIZATION (kept last so it wins over
+   every earlier same-specificity rule in this file)
+   ============================================= */
+@media (max-width: 768px) {
+  .app {
+    flex-direction: column;
+  }
+
+  /* Nav rail becomes a fixed bottom tab bar, like a native app */
+  .nav-rail {
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    min-width: 100%;
+    height: var(--mobile-nav-height);
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    z-index: 30;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .nav-rail-brand {
+    display: none;
+  }
+
+  .nav-rail-items {
+    flex: 3;
+    flex-direction: row;
+    padding: 6px 4px;
+    gap: 0;
+  }
+
+  .nav-rail-items .nav-rail-item {
+    flex: 1;
+  }
+
+  .nav-rail-footer {
+    flex: 1;
+    display: flex;
+    border-top: none;
+    padding: 6px 4px;
+  }
+
+  .nav-rail-footer .nav-rail-item {
+    flex: 1;
+    width: 100%;
+  }
+
+  .nav-rail-item {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 3px;
+    padding: 6px 2px;
+    font-size: 0.65rem;
+  }
+
+  .nav-rail-item span {
+    white-space: nowrap;
+  }
+
+  /* Reserve room so content never sits behind the fixed bottom bar.
+     min-height:0 is required here: .app is now a column flex container,
+     and a flex:1 child defaults to min-height:auto, which would let it
+     grow to fit its full content instead of being clamped + scrollable. */
+  .content-area {
+    padding-bottom: var(--mobile-nav-height);
+    min-height: 0;
+  }
+
+  /* Dashboard: stop cards from forcing a wider-than-viewport track */
+  .analytics-card,
+  .analytics-card-header,
+  .analytics-card-header > div {
+    min-width: 0;
+  }
+
+  .analytics-card-header {
+    flex-wrap: wrap;
+  }
+
+  /* Pagination footers (orders/products/choices all share these classes):
+     numbered pages + full-text prev/next don't fit a narrow screen */
+  .orders-pagination-container {
+    justify-content: center;
+  }
+
+  .pagination-pages {
+    display: none;
+  }
+
+  .pagination-btn span {
+    display: none;
+  }
+
+  .conversation-list-pane {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    min-width: 100%;
+    z-index: 20;
+    /* Opaque on mobile: this pane covers the thread pane full-screen, so its
+       usual translucent glass background (--sidebar-bg has alpha) must not
+       let the thread pane bleed through. A flat, non-variable color on
+       purpose: every theme token here carries transparency by design. */
+    background-color: #141414;
+  }
+
+  .conversation-list-pane.hide-mobile {
+    transform: translateX(-100%);
+  }
+
+  .back-btn {
+    display: flex;
+  }
+
+  .messages-container {
+    padding: 12px 16px;
+  }
+
+  .message {
+    max-width: 85%;
+  }
+
+  /* Watermark: sized for a wide desktop pane, far too dominant on a narrow screen */
+  .chat-watermark .logo-empty-state {
+    width: 76px;
+    height: 76px;
+  }
+
+  .chat-watermark {
+    opacity: 0.25;
+  }
+
+  /* .app is now a column flex container: info-panel must be taken out of
+     that flow at all times (open or closed), or its own height participates
+     in the column layout and starves content-area of space */
+  .info-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 25;
+  }
+
+  .info-panel.open {
+    width: 100%;
+  }
+
+  /* Template previews (Configurações): minmax(0,...) so the track shrinks to
+     the container instead of growing to fit the preview's natural width */
+  .template-previews {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Dashboard toolbar: period filters + pending-leads pill + import button
+     all need to be able to wrap onto their own lines on a narrow screen */
+  .kpi-toolbar {
+    align-items: stretch;
+  }
+
+  .pending-leads-indicator,
+  #btn-import-shortcut {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .import-actions {
+    flex-direction: column-reverse;
+  }
+
+  .import-actions button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 
