@@ -7,10 +7,19 @@ let state = {
   infoPanelOpen: false,
   leads: [],
   currentMessages: [],
-  periodFilter: '7dias',
+  periodFilter: 'todos',
   ordersPage: 1,
   ordersPerPage: 10,
-  currentFilteredVendas: []
+  currentFilteredVendas: [],
+  productsPage: 1,
+  productsPerPage: 5,
+  currentTopProducts: [],
+  choicesPage: 1,
+  choicesPerPage: 8,
+  currentTopChoices: [],
+  importHeaders: [],
+  importRows: [],
+  importMapping: {}
 };
 
 // =============================================
@@ -19,10 +28,10 @@ let state = {
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-const sidebar = $('#sidebar');
+const conversationListPane = $('#conversation-list-pane');
 const chatList = $('#chat-list');
 const searchInput = $('#search-input');
-const chatArea = $('#chat-area');
+const contentArea = $('#content-area');
 const emptyState = $('#empty-state');
 const chatHeader = $('#chat-header');
 const contactAvatar = $('#contact-avatar');
@@ -114,49 +123,6 @@ function truncate(str, len) {
 // =============================================
 // OPEN CHAT & FETCH MESSAGES
 // =============================================
-async function openChat(leadId) {
-  state.activeChat = leadId;
-  const lead = state.leads.find(l => l.lead_id === leadId);
-  if (!lead) return;
-
-  // Update sidebar
-  renderChatList(searchInput.value);
-
-  // Show chat UI
-  emptyState.classList.add('hidden');
-  chatHeader.classList.remove('hidden');
-  messagesContainer.classList.remove('hidden');
-  
-  const watermark = document.getElementById('chat-watermark');
-  if (watermark) watermark.classList.remove('hidden');
-
-  // Mobile: hide sidebar
-  if (window.innerWidth <= 768) {
-    sidebar.classList.add('hide-mobile');
-  }
-
-  const name = lead.lead_nome || 'Lead Sem Nome';
-  // Update header
-  if (lead.is_no_lead) {
-    contactAvatar.style.background = '#e63946';
-    contactAvatar.innerHTML = 'NL';
-    contactName.textContent = 'Novo Lead';
-    contactStatus.textContent = 'Sem vínculo';
-  } else {
-    contactAvatar.style.background = getAvatarColor(lead.lead_id);
-    contactAvatar.innerHTML = name.substring(0, 2).toUpperCase();
-    contactName.textContent = name;
-    contactStatus.textContent = lead.lead_telefone ? lead.lead_telefone : 'Online';
-  }
-  contactStatus.className = 'contact-status';
-
-  // Fetch messages from DB
-  await fetchMessages(leadId);
-
-  // Close info panel
-  closeInfoPanel();
-}
-
 async function fetchMessages(leadId) {
   messagesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #8696a0;">Carregando mensagens...</div>';
 
@@ -186,6 +152,66 @@ async function fetchMessages(leadId) {
 }
 
 // =============================================
+// MESSAGE TEMPLATE CATALOG
+// =============================================
+// Metadata for known WhatsApp templates fired by the "Disparo de Mensagens"
+// automation. mensagem_template (saved by n8n) is looked up here to know
+// whether to render an image header and/or an action button alongside the
+// text. Adding a future template only requires a new entry here — no
+// changes to the rendering logic below.
+const MESSAGE_TEMPLATES = {
+  cupom_botao: {
+    label: 'Cupom + Botão (Imagem)',
+    body: 'Ótima notícia {{nome}}! Preparamos um presente especial para o seu jantar hoje. 🍔\n\nSentimos sua falta no Samukas! Liberamos o cupom SMK15 para você aproveitar 15% de desconto no seu próximo pedido.\n\nVálido por tempo limitado. Toque no botão abaixo para fazer seu pedido!',
+    image: 'https://mnoknmzkmqbkbyobjzuh.supabase.co/storage/v1/object/public/visi-marketing/samukas_burguer.jpeg',
+    button: { text: 'Aproveitar Agora', url: 'https://samukasburger.saipos.com/home' }
+  },
+  cupom_15: {
+    label: 'Cupom 15 (Texto Simples)',
+    body: 'Ótima noticia {{nome}}!! 15% OFF no seu pedido hoje! 🍔 \n\nVocê já provou o Samukas e a gente quer te ver de volta.\n\nUse o cupom SMK15 e garante seu desconto agora.\n\n👉 https://samukasburger.saipos.com/home\n\nCorre, é por tempo limitado! ⏳'
+  }
+};
+
+// Builds the inner HTML of a message bubble (image + text + button) from a
+// template's catalog entry and the literal text to show. Shared by the real
+// chat renderer and the Configurações preview, so both stay in sync.
+function buildMessageBubbleInner(template, text) {
+  const formattedText = formatMessageText(text || '');
+  const imageHtml = template.image
+    ? `<div class="message-media"><img src="${template.image}" alt="" loading="lazy" /></div>`
+    : '';
+  const buttonHtml = template.button
+    ? `<a class="message-template-button" href="${template.button.url}" target="_blank" rel="noopener noreferrer">${template.button.text}</a>`
+    : '';
+  return `${imageHtml}<div class="message-text">${formattedText}</div>${buttonHtml}`;
+}
+
+// =============================================
+// TEMPLATE PREVIEWS (Configurações page)
+// =============================================
+function renderTemplatePreviews() {
+  const container = $('#template-previews');
+  if (!container) return;
+
+  container.innerHTML = Object.entries(MESSAGE_TEMPLATES).map(([key, tpl]) => {
+    const sampleText = (tpl.body || '').replace(/\{\{nome\}\}/g, 'Cliente');
+    return `
+      <div class="template-preview">
+        <div class="template-preview-label">${tpl.label || key}</div>
+        <div class="template-preview-phone">
+          <div class="message outgoing">
+            <div class="message-bubble">
+              ${buildMessageBubbleInner(tpl, sampleText)}
+              <div class="message-footer"><span class="message-time">agora</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// =============================================
 // RENDER MESSAGES
 // =============================================
 function renderMessages(messages, lead) {
@@ -198,15 +224,15 @@ function renderMessages(messages, lead) {
     // Assume origin 'cliente' is incoming, everything else is outgoing
     const isOutgoing = (msg.mensagem_origem || '').toLowerCase() !== 'cliente';
     const statusIcon = getStatusIcon(msg.mensagem_status || 'read');
-    const formattedText = formatMessageText(msg.mensagem_conteudo || '');
-    
+    const template = MESSAGE_TEMPLATES[msg.mensagem_template] || {};
+
     // Format time
     const time = msg.criado_em ? new Date(msg.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
     return `
       <div class="message ${isOutgoing ? 'outgoing' : 'incoming'}" id="msg-${msg.mensagem_id}">
         <div class="message-bubble">
-          <div class="message-text">${formattedText}</div>
+          ${buildMessageBubbleInner(template, msg.mensagem_conteudo)}
           <div class="message-footer">
             <span class="message-time">${time}</span>
             ${isOutgoing ? `<span class="message-status ${msg.mensagem_status || 'read'}">${statusIcon}</span>` : ''}
@@ -220,8 +246,8 @@ function renderMessages(messages, lead) {
 function formatMessageText(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br>')
-    .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color: var(--accent); text-decoration: underline;">$1</a>');
+    .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: var(--accent); text-decoration: underline;">$1</a>')
+    .replace(/\n/g, '<br>');
 }
 
 function getStatusIcon(status) {
@@ -543,7 +569,6 @@ function initLogin() {
   const loginBtn = $('#login-btn');
   const togglePassword = $('#toggle-password');
   const app = $('#app');
-  const rememberMe = $('#remember-me');
 
   // Supabase auth state listener
   db.auth.onAuthStateChange((event, session) => {
@@ -600,28 +625,39 @@ function initLogin() {
     handleLogin(loginEmail, loginPassword, loginBtn, loginScreen, app);
   });
 
-  // Social login buttons (mock)
-  ['#login-google', '#login-github', '#login-apple'].forEach(sel => {
-    const el = $(sel);
-    if (el) {
-      el.addEventListener('click', () => {
-        alert('Login social não implementado.');
-      });
+  // Forgot password — sends a real Supabase Auth reset email
+  $('#forgot-password').addEventListener('click', async (e) => {
+    e.preventDefault();
+    removeError(loginEmail);
+
+    const email = loginEmail.value.trim();
+    if (!email || !loginEmail.validity.valid) {
+      loginEmail.classList.add('error');
+      showError(loginEmail, 'Digite seu e-mail acima para receber o link de redefinição');
+      loginEmail.focus();
+      return;
+    }
+
+    const link = $('#forgot-password');
+    const originalText = link.textContent;
+    link.textContent = 'Enviando...';
+
+    const { error } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+
+    link.textContent = originalText;
+
+    if (error) {
+      loginEmail.classList.add('error');
+      showError(loginEmail, 'Não foi possível enviar o e-mail: ' + error.message);
+    } else {
+      removeError(loginEmail);
+      showError(loginEmail, 'E-mail de redefinição enviado! Confira sua caixa de entrada.');
+      const errEl = loginEmail.closest('.form-group').querySelector('.form-error');
+      if (errEl) errEl.classList.add('form-success');
     }
   });
-
-  // Prevent default on links
-  $('#forgot-password').addEventListener('click', (e) => {
-    e.preventDefault();
-    alert('Funcionalidade de recuperação de senha a ser implementada.');
-  });
-  const signupLink = $('#signup-link');
-  if (signupLink) {
-    signupLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      alert('Funcionalidade de cadastro a ser implementada.');
-    });
-  }
 }
 
 async function handleLogin(emailInput, passwordInput, btn, loginScreen, app) {
@@ -783,9 +819,9 @@ async function openChat(leadId) {
   const watermark = document.getElementById('chat-watermark');
   if (watermark) watermark.classList.remove('hidden');
 
-  // Mobile: hide sidebar
+  // Mobile: hide conversation list, show thread only
   if (window.innerWidth <= 768) {
-    sidebar.classList.add('hide-mobile');
+    conversationListPane.classList.add('hide-mobile');
   }
 
   const name = lead.lead_nome || 'Lead Sem Nome';
@@ -817,19 +853,383 @@ function switchView(viewName) {
   state.currentView = viewName;
   const tabDashboard = $('#tab-dashboard');
   const tabChat = $('#tab-chat');
+  const tabConfig = $('#tab-config');
   const viewDashboard = $('#view-dashboard');
   const viewChat = $('#view-chat');
+  const viewConfig = $('#view-config');
+
+  [tabDashboard, tabChat, tabConfig].forEach(t => t && t.classList.remove('active'));
+  [viewDashboard, viewChat, viewConfig].forEach(v => v && v.classList.add('hidden'));
 
   if (viewName === 'dashboard') {
     if (tabDashboard) tabDashboard.classList.add('active');
-    if (tabChat) tabChat.classList.remove('active');
     if (viewDashboard) viewDashboard.classList.remove('hidden');
-    if (viewChat) viewChat.classList.add('hidden');
+  } else if (viewName === 'config') {
+    if (tabConfig) tabConfig.classList.add('active');
+    if (viewConfig) viewConfig.classList.remove('hidden');
+    fetchTemplateConfig();
   } else {
     if (tabChat) tabChat.classList.add('active');
-    if (tabDashboard) tabDashboard.classList.remove('active');
     if (viewChat) viewChat.classList.remove('hidden');
-    if (viewDashboard) viewDashboard.classList.add('hidden');
+  }
+}
+
+// =============================================
+// TEMPLATE CONFIG (Portal -> n8n Disparo de Mensagens)
+// =============================================
+async function fetchTemplateConfig() {
+  const statusEl = $('#template-config-status');
+  try {
+    const { data, error } = await db
+      .from('samukas_configuracoes')
+      .select('template_mensagem')
+      .eq('id', 1)
+      .single();
+
+    if (error) throw error;
+    renderTemplateOptions(data ? data.template_mensagem : 'cupom_botao');
+  } catch (err) {
+    console.error('Erro ao buscar configuração de template:', err);
+    if (statusEl) {
+      statusEl.textContent = 'Não foi possível carregar a configuração atual.';
+      statusEl.className = 'template-config-status error';
+    }
+  }
+}
+
+function renderTemplateOptions(activeTemplate) {
+  $$('.template-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.template === activeTemplate);
+  });
+}
+
+async function setActiveTemplate(templateName) {
+  const statusEl = $('#template-config-status');
+  const buttons = $$('.template-option');
+  buttons.forEach(b => b.disabled = true);
+  if (statusEl) {
+    statusEl.textContent = 'Salvando...';
+    statusEl.className = 'template-config-status';
+  }
+
+  try {
+    const { error } = await db
+      .from('samukas_configuracoes')
+      .update({ template_mensagem: templateName, atualizado_em: new Date().toISOString() })
+      .eq('id', 1);
+
+    if (error) throw error;
+
+    renderTemplateOptions(templateName);
+    if (statusEl) {
+      const label = templateName === 'cupom_botao' ? 'Cupom + Botão (Imagem)' : 'Cupom 15 (Texto Simples)';
+      statusEl.textContent = `✅ Template ativo atualizado para: ${label}. A próxima automação de disparo já vai usar esse modelo.`;
+      statusEl.className = 'template-config-status success';
+    }
+  } catch (err) {
+    console.error('Erro ao salvar template ativo:', err);
+    if (statusEl) {
+      statusEl.textContent = 'Erro ao salvar a configuração. Tente novamente.';
+      statusEl.className = 'template-config-status error';
+    }
+  } finally {
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
+// =============================================
+// PENDING LEADS INDICATOR (Dashboard)
+// =============================================
+async function fetchPendingLeadsCount() {
+  const indicator = $('#pending-leads-indicator');
+  const textEl = $('#pending-leads-text');
+  if (!indicator || !textEl) return;
+
+  try {
+    // Same eligibility filter used by the "Puxar LEADS" node in the
+    // Disparo de Mensagens automation: active leads not yet messaged.
+    const { count, error } = await db
+      .from('samukas_leads')
+      .select('lead_id', { count: 'exact', head: true })
+      .eq('lead_ativo', true)
+      .or('lead_mensagem.is.null,lead_mensagem.eq.');
+
+    if (error) throw error;
+
+    indicator.classList.remove('has-pending', 'no-pending', 'error');
+    if (count > 0) {
+      indicator.classList.add('has-pending');
+      textEl.textContent = `${count} ${count === 1 ? 'lead aguardando' : 'leads aguardando'} envio`;
+    } else {
+      indicator.classList.add('no-pending');
+      textEl.textContent = 'Nenhum lead pendente de envio';
+    }
+  } catch (err) {
+    console.error('Erro ao buscar leads pendentes:', err);
+    indicator.classList.remove('has-pending', 'no-pending');
+    indicator.classList.add('error');
+    textEl.textContent = 'Não foi possível verificar leads pendentes';
+  }
+}
+
+// =============================================
+// LEAD IMPORT (Configurações — planilha -> samukas_leads)
+// =============================================
+const LEAD_IMPORT_FIELDS = [
+  { key: 'nome', label: 'Nome', required: true, synonyms: ['nome', 'cliente', 'nomecliente'] },
+  { key: 'telefone', label: 'Telefone', required: true, synonyms: ['telefone', 'celular', 'whatsapp', 'fone', 'telefonecelular'] },
+  { key: 'quantidade_pedidos', label: 'Qtd. Pedidos', required: false, synonyms: ['qtdpedidos', 'quantidadepedidos', 'qtdedidos', 'pedidos', 'qtddepedidos'] },
+  { key: 'valor_total', label: 'Valor Total', required: false, synonyms: ['valortotal', 'valortotalgasto'] },
+  { key: 'ticket_medio', label: 'Ticket Médio', required: false, synonyms: ['ticketmedio'] },
+  { key: 'ultima_compra', label: 'Última Compra', required: false, synonyms: ['ultimacompra', 'dataultimacompra'] }
+];
+
+function normalizeImportHeader(str) {
+  return String(str || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function parsePtBrNumber(val) {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number') return isNaN(val) ? null : val;
+  const cleaned = String(val).trim().replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? null : n;
+}
+
+function parsePtBrDate(val) {
+  if (!val) return null;
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const match = String(val).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (match) {
+    const [, dd, mm, yyyy] = match;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  }
+  return null;
+}
+
+function extractFirstPhone(val) {
+  if (!val) return '';
+  const first = String(val).split(';')[0];
+  return first.replace(/\D/g, '');
+}
+
+function resetImportFlow() {
+  const fileInput = $('#import-file-input');
+  if (fileInput) fileInput.value = '';
+  const statusEl = $('#import-file-status');
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'template-config-status'; }
+  $('#import-step-file').classList.remove('hidden');
+  $('#import-step-mapping').classList.add('hidden');
+  $('#import-step-result').classList.add('hidden');
+  state.importHeaders = [];
+  state.importRows = [];
+  state.importMapping = {};
+}
+
+function renderImportMapping() {
+  const grid = $('#import-mapping-grid');
+  if (!grid) return;
+
+  grid.innerHTML = LEAD_IMPORT_FIELDS.map(f => {
+    const options = state.importHeaders.map((h, i) =>
+      `<option value="${i}" ${state.importMapping[f.key] === i ? 'selected' : ''}>${h || ('(coluna ' + (i + 1) + ')')}</option>`
+    ).join('');
+    const ignoreOption = !f.required
+      ? `<option value="-1" ${state.importMapping[f.key] === -1 ? 'selected' : ''}>(Ignorar)</option>`
+      : `<option value="-1" ${state.importMapping[f.key] === -1 ? 'selected' : ''} disabled>Selecione uma coluna</option>`;
+
+    return `
+      <div class="import-mapping-field">
+        <label>${f.label}${f.required ? '<span class="required-mark">*</span>' : ''}</label>
+        <select data-field="${f.key}">
+          ${ignoreOption}
+          ${options}
+        </select>
+      </div>
+    `;
+  }).join('');
+
+  grid.querySelectorAll('select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      state.importMapping[sel.dataset.field] = parseInt(sel.value, 10);
+      renderImportPreview();
+    });
+  });
+}
+
+function renderImportPreview() {
+  const theadRow = $('#import-preview-head');
+  const tbody = $('#import-preview-body');
+  const info = $('#import-preview-info');
+  if (!theadRow || !tbody) return;
+
+  theadRow.innerHTML = LEAD_IMPORT_FIELDS.map(f => `<th>${f.label}</th>`).join('');
+
+  const sampleRows = state.importRows.slice(0, 8);
+  tbody.innerHTML = sampleRows.map(row => {
+    return '<tr>' + LEAD_IMPORT_FIELDS.map(f => {
+      const idx = state.importMapping[f.key];
+      if (idx == null || idx < 0) return '<td style="color: var(--text-tertiary);">—</td>';
+      const raw = row[idx];
+      let display;
+      if (f.key === 'telefone') display = extractFirstPhone(raw) || '(sem telefone)';
+      else if (f.key === 'valor_total' || f.key === 'ticket_medio') display = parsePtBrNumber(raw);
+      else if (f.key === 'ultima_compra') display = parsePtBrDate(raw);
+      else display = raw;
+      return `<td>${(display === null || display === undefined || display === '') ? '<span style="color: var(--text-tertiary);">—</span>' : display}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  if (info) {
+    info.textContent = `${state.importRows.length} linha(s) lida(s) na planilha — mostrando as primeiras ${sampleRows.length}.`;
+  }
+}
+
+async function handleImportFile(file) {
+  const statusEl = $('#import-file-status');
+  if (statusEl) {
+    statusEl.textContent = 'Lendo planilha...';
+    statusEl.className = 'template-config-status';
+  }
+
+  try {
+    if (typeof XLSX === 'undefined') throw new Error('Biblioteca de planilha não carregou. Recarregue a página.');
+
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+
+    if (!rows || rows.length < 2) throw new Error('Planilha vazia ou sem linhas de dados.');
+
+    const headers = rows[0].map(h => String(h || '').trim());
+    const dataRows = rows.slice(1).filter(r => r.some(c => c !== '' && c !== null && c !== undefined));
+
+    if (dataRows.length === 0) throw new Error('Nenhuma linha de dados encontrada na planilha.');
+
+    state.importHeaders = headers;
+    state.importRows = dataRows;
+    state.importMapping = {};
+
+    const normHeaders = headers.map(normalizeImportHeader);
+    LEAD_IMPORT_FIELDS.forEach(f => {
+      let idx = normHeaders.findIndex(h => f.synonyms.includes(h));
+      if (idx === -1) idx = normHeaders.findIndex(h => h && f.synonyms.some(s => h.includes(s)));
+      state.importMapping[f.key] = idx;
+    });
+
+    renderImportMapping();
+    renderImportPreview();
+
+    $('#import-step-file').classList.add('hidden');
+    $('#import-step-result').classList.add('hidden');
+    $('#import-step-mapping').classList.remove('hidden');
+  } catch (err) {
+    console.error('Erro ao ler planilha:', err);
+    if (statusEl) {
+      statusEl.textContent = 'Erro ao ler a planilha: ' + err.message;
+      statusEl.className = 'template-config-status error';
+    }
+  }
+}
+
+async function confirmLeadImport() {
+  const nomeIdx = state.importMapping.nome;
+  const telIdx = state.importMapping.telefone;
+
+  if (nomeIdx == null || nomeIdx < 0 || telIdx == null || telIdx < 0) {
+    alert('Selecione as colunas de Nome e Telefone antes de confirmar — esses dois campos são obrigatórios.');
+    return;
+  }
+
+  const btn = $('#btn-import-confirm');
+  const btnSpan = btn ? btn.querySelector('span') : null;
+  if (btn) btn.disabled = true;
+  if (btnSpan) btnSpan.textContent = 'Importando...';
+
+  try {
+    const qtdIdx = state.importMapping.quantidade_pedidos;
+    const valorIdx = state.importMapping.valor_total;
+    const ticketIdx = state.importMapping.ticket_medio;
+    const dataIdx = state.importMapping.ultima_compra;
+
+    const candidates = [];
+    const seenPhones = new Set();
+    let semTelefone = 0;
+
+    for (const row of state.importRows) {
+      const phone = extractFirstPhone(row[telIdx]);
+      if (!phone) { semTelefone++; continue; }
+      if (seenPhones.has(phone)) continue;
+      seenPhones.add(phone);
+
+      const nome = String(row[nomeIdx] || '').trim();
+      candidates.push({
+        lead_nome: nome || null,
+        lead_telefone: phone,
+        lead_quantidade_pedidos: qtdIdx >= 0 ? (() => { const n = parsePtBrNumber(row[qtdIdx]); return n == null ? null : Math.round(n); })() : null,
+        lead_valor_total: valorIdx >= 0 ? parsePtBrNumber(row[valorIdx]) : null,
+        lead_ticket_medio: ticketIdx >= 0 ? parsePtBrNumber(row[ticketIdx]) : null,
+        lead_ultima_compra: dataIdx >= 0 ? parsePtBrDate(row[dataIdx]) : null,
+        lead_ativo: true
+      });
+    }
+
+    if (candidates.length === 0) {
+      alert('Nenhuma linha com telefone válido foi encontrada para importar.');
+      return;
+    }
+
+    // Check which phones already exist, in chunks (defensive against very large sheets)
+    const phones = candidates.map(c => c.lead_telefone);
+    const existingPhones = new Set();
+    const CHUNK = 300;
+    for (let i = 0; i < phones.length; i += CHUNK) {
+      const chunk = phones.slice(i, i + CHUNK);
+      const { data, error } = await db.from('samukas_leads').select('lead_telefone').in('lead_telefone', chunk);
+      if (error) throw error;
+      (data || []).forEach(d => existingPhones.add(d.lead_telefone));
+    }
+
+    const toInsert = candidates.filter(c => !existingPhones.has(c.lead_telefone));
+    const ignoradosExistentes = candidates.length - toInsert.length;
+
+    let inserted = 0;
+    if (toInsert.length > 0) {
+      const { data, error } = await db.from('samukas_leads').insert(toInsert).select('lead_id');
+      if (error) throw error;
+      inserted = data ? data.length : 0;
+    }
+
+    $('#import-step-mapping').classList.add('hidden');
+    $('#import-step-result').classList.remove('hidden');
+    const resultEl = $('#import-result-summary');
+    if (resultEl) {
+      resultEl.className = 'template-config-status success';
+      resultEl.textContent = `✅ ${inserted} novo(s) lead(s) importado(s) · ${ignoradosExistentes} ignorado(s) (telefone já cadastrado) · ${semTelefone} linha(s) sem telefone válido.`;
+    }
+
+    fetchPendingLeadsCount();
+  } catch (err) {
+    console.error('Erro ao importar leads:', err);
+    $('#import-step-mapping').classList.add('hidden');
+    $('#import-step-result').classList.remove('hidden');
+    const resultEl = $('#import-result-summary');
+    if (resultEl) {
+      resultEl.className = 'template-config-status error';
+      resultEl.textContent = 'Erro ao importar leads: ' + err.message;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnSpan) btnSpan.textContent = 'Confirmar Importação';
   }
 }
 
@@ -1063,64 +1463,16 @@ async function fetchKPIs() {
       }
     }
 
-    const topProductsList = $('#top-products-list');
-    const topChoicesList = $('#top-choices-list');
+    // Salvar rankings ordenados no estado e renderizar com paginação
+    state.currentTopProducts = Array.from(productStatsMap.values()).sort((a, b) => b.qtd - a.qtd || b.faturamento - a.faturamento);
+    state.productsPage = 1;
+    renderTopProducts();
 
-    // Renderizar Top Produtos Mais Vendidos
-    if (topProductsList) {
-      const sortedProducts = Array.from(productStatsMap.values()).sort((a, b) => b.qtd - a.qtd || b.faturamento - a.faturamento);
-
-      if (sortedProducts.length === 0) {
-        topProductsList.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 20px; font-size: 0.85rem;">Nenhum produto registrado no período.</div>`;
-      } else {
-        const maxQty = sortedProducts[0].qtd || 1;
-
-        topProductsList.innerHTML = sortedProducts.map((p, idx) => {
-          let rankClass = 'rank-other';
-          let rankText = `#${idx + 1}`;
-          if (idx === 0) { rankClass = 'rank-1'; rankText = '1º'; }
-          else if (idx === 1) { rankClass = 'rank-2'; rankText = '2º'; }
-          else if (idx === 2) { rankClass = 'rank-3'; rankText = '3º'; }
-
-          const pct = Math.min(100, Math.max(12, Math.round((p.qtd / maxQty) * 100)));
-          const revStr = p.faturamento > 0 ? p.faturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
-
-          return `
-            <div class="top-product-row">
-              <div class="top-product-main">
-                <div class="top-product-info">
-                  <span class="rank-badge ${rankClass}">${rankText}</span>
-                  <span class="top-product-name" title="${p.nome}">${p.nome}</span>
-                </div>
-                <div class="top-product-stats">
-                  <span class="top-product-qty">${p.qtd} ${p.qtd === 1 ? 'unidade' : 'unidades'}</span>
-                  ${revStr ? `<span class="top-product-revenue">${revStr}</span>` : ''}
-                </div>
-              </div>
-              <div class="product-progress-track">
-                <div class="product-progress-fill" style="width: ${pct}%;"></div>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-    }
-
-    // Renderizar Adicionais & Escolhas Mais Populares
-    if (topChoicesList) {
-      const sortedChoices = Array.from(choicesStatsMap.entries()).sort((a, b) => b[1] - a[1]);
-
-      if (sortedChoices.length === 0) {
-        topChoicesList.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 20px; font-size: 0.85rem;">Nenhuma opção registrada no período.</div>`;
-      } else {
-        topChoicesList.innerHTML = sortedChoices.map(([nome, count]) => `
-          <div class="top-choice-tag" title="${count} ${count === 1 ? 'vez escolhido' : 'vezes escolhido'}">
-            <span>${nome}</span>
-            <span class="top-choice-count">${count}x</span>
-          </div>
-        `).join('');
-      }
-    }
+    state.currentTopChoices = Array.from(choicesStatsMap.entries())
+      .map(([nome, count]) => ({ nome, count }))
+      .sort((a, b) => b.count - a.count);
+    state.choicesPage = 1;
+    renderTopChoices();
 
   } catch (err) {
     console.error('Erro ao processar KPIs:', err);
@@ -1333,6 +1685,186 @@ window.goToOrdersPage = function(pageNumber) {
   renderOrdersTable();
 };
 
+// =============================================
+// TOP PRODUTOS MAIS VENDIDOS (ranking + paginação)
+// =============================================
+function renderTopProducts() {
+  const listEl = $('#top-products-list');
+  const container = $('#products-pagination-container');
+  const infoEl = $('#products-pagination-info');
+  const pagesEl = $('#products-pagination-pages');
+  const btnPrev = $('#btn-products-prev');
+  const btnNext = $('#btn-products-next');
+  if (!listEl) return;
+
+  const products = state.currentTopProducts || [];
+  const total = products.length;
+
+  if (total === 0) {
+    listEl.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 20px; font-size: 0.85rem;">Nenhum produto registrado no período.</div>`;
+    if (container) container.classList.add('hidden');
+    return;
+  }
+
+  const perPage = state.productsPerPage || 5;
+  const totalPages = Math.ceil(total / perPage) || 1;
+  if (state.productsPage > totalPages) state.productsPage = totalPages;
+  if (state.productsPage < 1) state.productsPage = 1;
+
+  const maxQty = products[0].qtd || 1;
+  const startIndex = (state.productsPage - 1) * perPage;
+  const endIndex = Math.min(startIndex + perPage, total);
+  const pageProducts = products.slice(startIndex, endIndex);
+  const medals = ['🥇', '🥈', '🥉'];
+
+  listEl.innerHTML = pageProducts.map((p, i) => {
+    const idx = startIndex + i;
+    let rankClass = 'rank-other';
+    let rankText = `#${idx + 1}`;
+    if (idx === 0) { rankClass = 'rank-1'; rankText = medals[0]; }
+    else if (idx === 1) { rankClass = 'rank-2'; rankText = medals[1]; }
+    else if (idx === 2) { rankClass = 'rank-3'; rankText = medals[2]; }
+
+    const pct = Math.min(100, Math.max(12, Math.round((p.qtd / maxQty) * 100)));
+    const revStr = p.faturamento > 0 ? p.faturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
+
+    return `
+      <div class="top-product-row">
+        <div class="top-product-main">
+          <div class="top-product-info">
+            <span class="rank-badge ${rankClass}">${rankText}</span>
+            <span class="top-product-name" title="${p.nome}">${p.nome}</span>
+          </div>
+          <div class="top-product-stats">
+            <span class="top-product-qty">${p.qtd} ${p.qtd === 1 ? 'unidade' : 'unidades'}</span>
+            ${revStr ? `<span class="top-product-revenue">${revStr}</span>` : ''}
+          </div>
+        </div>
+        <div class="product-progress-track">
+          <div class="product-progress-fill" style="width: ${pct}%;"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (container) container.classList.remove('hidden');
+  if (infoEl) infoEl.textContent = `Mostrando ${startIndex + 1}–${endIndex} de ${total} produtos`;
+
+  if (btnPrev) {
+    btnPrev.disabled = state.productsPage <= 1;
+    btnPrev.onclick = () => { if (state.productsPage > 1) { state.productsPage--; renderTopProducts(); } };
+  }
+  if (btnNext) {
+    btnNext.disabled = state.productsPage >= totalPages;
+    btnNext.onclick = () => { if (state.productsPage < totalPages) { state.productsPage++; renderTopProducts(); } };
+  }
+  if (pagesEl) {
+    if (totalPages <= 1) {
+      pagesEl.innerHTML = '';
+    } else {
+      let html = '';
+      for (let p = 1; p <= totalPages; p++) {
+        html += `<button class="pagination-page-btn ${p === state.productsPage ? 'active' : ''}" onclick="goToProductsPage(${p})">${p}</button>`;
+      }
+      pagesEl.innerHTML = html;
+    }
+  }
+}
+
+window.goToProductsPage = function(pageNumber) {
+  state.productsPage = pageNumber;
+  renderTopProducts();
+};
+
+// =============================================
+// ADICIONAIS & ESCOLHAS MAIS POPULARES (ranking + paginação)
+// =============================================
+function renderTopChoices() {
+  const listEl = $('#top-choices-list');
+  const container = $('#choices-pagination-container');
+  const infoEl = $('#choices-pagination-info');
+  const pagesEl = $('#choices-pagination-pages');
+  const btnPrev = $('#btn-choices-prev');
+  const btnNext = $('#btn-choices-next');
+  if (!listEl) return;
+
+  const choices = state.currentTopChoices || [];
+  const total = choices.length;
+
+  if (total === 0) {
+    listEl.innerHTML = `<div style="text-align: center; color: var(--text-tertiary); padding: 20px; font-size: 0.85rem;">Nenhuma opção registrada no período.</div>`;
+    if (container) container.classList.add('hidden');
+    return;
+  }
+
+  const perPage = state.choicesPerPage || 8;
+  const totalPages = Math.ceil(total / perPage) || 1;
+  if (state.choicesPage > totalPages) state.choicesPage = totalPages;
+  if (state.choicesPage < 1) state.choicesPage = 1;
+
+  const maxCount = choices[0].count || 1;
+  const startIndex = (state.choicesPage - 1) * perPage;
+  const endIndex = Math.min(startIndex + perPage, total);
+  const pageChoices = choices.slice(startIndex, endIndex);
+  const medals = ['🥇', '🥈', '🥉'];
+
+  listEl.innerHTML = pageChoices.map((c, i) => {
+    const idx = startIndex + i;
+    let rankClass = 'rank-other';
+    let rankText = `#${idx + 1}`;
+    if (idx === 0) { rankClass = 'rank-1'; rankText = medals[0]; }
+    else if (idx === 1) { rankClass = 'rank-2'; rankText = medals[1]; }
+    else if (idx === 2) { rankClass = 'rank-3'; rankText = medals[2]; }
+
+    const pct = Math.min(100, Math.max(12, Math.round((c.count / maxCount) * 100)));
+
+    return `
+      <div class="top-product-row">
+        <div class="top-product-main">
+          <div class="top-product-info">
+            <span class="rank-badge ${rankClass}">${rankText}</span>
+            <span class="top-product-name" title="${c.nome}">${c.nome}</span>
+          </div>
+          <div class="top-product-stats">
+            <span class="top-product-qty top-choice-qty">${c.count}x escolhido</span>
+          </div>
+        </div>
+        <div class="product-progress-track">
+          <div class="product-progress-fill choice-progress-fill" style="width: ${pct}%;"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (container) container.classList.remove('hidden');
+  if (infoEl) infoEl.textContent = `Mostrando ${startIndex + 1}–${endIndex} de ${total} opções`;
+
+  if (btnPrev) {
+    btnPrev.disabled = state.choicesPage <= 1;
+    btnPrev.onclick = () => { if (state.choicesPage > 1) { state.choicesPage--; renderTopChoices(); } };
+  }
+  if (btnNext) {
+    btnNext.disabled = state.choicesPage >= totalPages;
+    btnNext.onclick = () => { if (state.choicesPage < totalPages) { state.choicesPage++; renderTopChoices(); } };
+  }
+  if (pagesEl) {
+    if (totalPages <= 1) {
+      pagesEl.innerHTML = '';
+    } else {
+      let html = '';
+      for (let p = 1; p <= totalPages; p++) {
+        html += `<button class="pagination-page-btn ${p === state.choicesPage ? 'active' : ''}" onclick="goToChoicesPage(${p})">${p}</button>`;
+      }
+      pagesEl.innerHTML = html;
+    }
+  }
+}
+
+window.goToChoicesPage = function(pageNumber) {
+  state.choicesPage = pageNumber;
+  renderTopChoices();
+};
+
 
 let realtimeChannel = null;
 
@@ -1393,10 +1925,40 @@ function initChat() {
   renderKPISkeletons();
   fetchKPIs();
   initRealtime();
+  renderTemplatePreviews();
+  fetchPendingLeadsCount();
+
+  // Lead import (Configurações)
+  const importFileInput = $('#import-file-input');
+  if (importFileInput) {
+    importFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleImportFile(file);
+    });
+  }
+  const btnImportCancel = $('#btn-import-cancel');
+  if (btnImportCancel) btnImportCancel.addEventListener('click', resetImportFlow);
+  const btnImportNew = $('#btn-import-new');
+  if (btnImportNew) btnImportNew.addEventListener('click', resetImportFlow);
+  const btnImportConfirm = $('#btn-import-confirm');
+  if (btnImportConfirm) btnImportConfirm.addEventListener('click', confirmLeadImport);
+
+  // Dashboard shortcut -> Configurações import card
+  const btnImportShortcut = $('#btn-import-shortcut');
+  if (btnImportShortcut) {
+    btnImportShortcut.addEventListener('click', () => {
+      switchView('config');
+      setTimeout(() => {
+        const card = document.querySelector('.lead-import-card');
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    });
+  }
 
   // Navigation tabs
   const tabDashboard = $('#tab-dashboard');
   const tabChat = $('#tab-chat');
+  const tabConfig = $('#tab-config');
 
   if (tabDashboard) {
     tabDashboard.addEventListener('click', () => switchView('dashboard'));
@@ -1404,6 +1966,14 @@ function initChat() {
   if (tabChat) {
     tabChat.addEventListener('click', () => switchView('chat'));
   }
+  if (tabConfig) {
+    tabConfig.addEventListener('click', () => switchView('config'));
+  }
+
+  // Template config options
+  $$('.template-option').forEach(btn => {
+    btn.addEventListener('click', () => setActiveTemplate(btn.dataset.template));
+  });
 
   // Period filter buttons
   const periodBtns = $$('.period-btn');
@@ -1444,7 +2014,7 @@ function initChat() {
 
   // Back button (mobile)
   $('#btn-back').addEventListener('click', () => {
-    sidebar.classList.remove('hide-mobile');
+    conversationListPane.classList.remove('hide-mobile');
     state.activeChat = null;
     emptyState.classList.remove('hidden');
     chatHeader.classList.add('hidden');
