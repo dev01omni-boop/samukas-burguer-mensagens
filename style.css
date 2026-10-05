@@ -2882,6 +2882,30 @@ input, button {
 }
 
 /* =============================================
+   RESEND TO LEAD BASE (Configurações)
+   ============================================= */
+.resend-note {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.resend-confirm-box {
+  background: rgba(255, 204, 0, 0.08);
+  border: 1px solid rgba(255, 204, 0, 0.35);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.resend-confirm-box strong {
+  color: #ffcc00;
+}
+
+/* =============================================
    MOBILE OPTIMIZATION (kept last so it wins over
    every earlier same-specificity rule in this file)
    ============================================= */

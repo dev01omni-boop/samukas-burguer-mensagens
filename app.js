@@ -1234,6 +1234,98 @@ async function confirmLeadImport() {
 }
 
 // =============================================
+// RESEND TO LEAD BASE (Configurações)
+// =============================================
+// Mirrors the Disparo de Mensagens automation: 40 leads per run,
+// 5 runs a day (17:30, 18:00, 18:30, 19:00, 19:30).
+const DISPATCH_PER_RUN = 40;
+const DISPATCH_RUNS_PER_DAY = 5;
+
+function setResendStatus(text, kind) {
+  const el = $('#resend-status');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'template-config-status' + (kind ? ' ' + kind : '');
+}
+
+function showResendStep(step) {
+  $('#resend-step-idle').classList.toggle('hidden', step !== 'idle');
+  $('#resend-step-confirm').classList.toggle('hidden', step !== 'confirm');
+}
+
+async function startResend() {
+  const btn = $('#btn-resend-start');
+  if (btn) btn.disabled = true;
+  setResendStatus('Contando leads...', '');
+
+  try {
+    const { count, error } = await db
+      .from('samukas_leads')
+      .select('lead_id', { count: 'exact', head: true })
+      .eq('lead_ativo', true)
+      .not('lead_mensagem', 'is', null)
+      .neq('lead_mensagem', '');
+
+    if (error) throw error;
+
+    if (!count) {
+      setResendStatus('Nenhum lead enviado para reenfileirar — todos os leads ativos já estão na fila.', '');
+      return;
+    }
+
+    const perDay = DISPATCH_PER_RUN * DISPATCH_RUNS_PER_DAY;
+    const days = Math.ceil(count / perDay);
+    $('#resend-confirm-text').innerHTML =
+      `Isso vai recolocar <strong>${count.toLocaleString('pt-BR')} leads</strong> na fila de disparo. ` +
+      `A automação envia ${DISPATCH_PER_RUN} por execução, ${DISPATCH_RUNS_PER_DAY} vezes ao dia ` +
+      `(~${perDay} por dia), então levaria cerca de <strong>${days} ${days === 1 ? 'dia' : 'dias'}</strong> ` +
+      `para chegar em todos. Mensagens já enviadas não são desfeitas.`;
+
+    state.resendCount = count;
+    setResendStatus('', '');
+    showResendStep('confirm');
+  } catch (err) {
+    console.error('Erro ao contar leads para reenvio:', err);
+    setResendStatus('Não foi possível contar os leads. Tente novamente.', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function cancelResend() {
+  setResendStatus('', '');
+  showResendStep('idle');
+}
+
+async function confirmResend() {
+  const btn = $('#btn-resend-confirm');
+  const btnSpan = btn ? btn.querySelector('span') : null;
+  if (btn) btn.disabled = true;
+  if (btnSpan) btnSpan.textContent = 'Reenfileirando...';
+
+  try {
+    const { count, error } = await db
+      .from('samukas_leads')
+      .update({ lead_mensagem: null }, { count: 'exact' })
+      .eq('lead_ativo', true)
+      .not('lead_mensagem', 'is', null);
+
+    if (error) throw error;
+
+    showResendStep('idle');
+    setResendStatus(`✅ ${(count || 0).toLocaleString('pt-BR')} leads recolocados na fila. A próxima execução da automação já começa a enviar.`, 'success');
+    fetchPendingLeadsCount();
+  } catch (err) {
+    console.error('Erro ao reenfileirar leads:', err);
+    showResendStep('idle');
+    setResendStatus('Erro ao reenfileirar os leads: ' + err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnSpan) btnSpan.textContent = 'Confirmar reenvio';
+  }
+}
+
+// =============================================
 // KPI & METRICS DASHBOARD
 // =============================================
 function renderKPISkeletons() {
@@ -1942,6 +2034,14 @@ function initChat() {
   if (btnImportNew) btnImportNew.addEventListener('click', resetImportFlow);
   const btnImportConfirm = $('#btn-import-confirm');
   if (btnImportConfirm) btnImportConfirm.addEventListener('click', confirmLeadImport);
+
+  // Resend to lead base (Configurações)
+  const btnResendStart = $('#btn-resend-start');
+  if (btnResendStart) btnResendStart.addEventListener('click', startResend);
+  const btnResendCancel = $('#btn-resend-cancel');
+  if (btnResendCancel) btnResendCancel.addEventListener('click', cancelResend);
+  const btnResendConfirm = $('#btn-resend-confirm');
+  if (btnResendConfirm) btnResendConfirm.addEventListener('click', confirmResend);
 
   // Dashboard shortcut -> Configurações import card
   const btnImportShortcut = $('#btn-import-shortcut');
