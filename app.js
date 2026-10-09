@@ -8,6 +8,7 @@ let state = {
   leads: [],
   currentMessages: [],
   periodFilter: 'todos',
+  customRange: null,
   ordersPage: 1,
   ordersPerPage: 10,
   currentFilteredVendas: [],
@@ -1372,6 +1373,8 @@ function filterLeadsByPeriod(leads, period) {
     } else if (period === 'mes') {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       return d >= monthStart && d <= todayEnd;
+    } else if (period === 'custom' && state.customRange) {
+      return d >= state.customRange.start && d <= state.customRange.end;
     }
     return true;
   });
@@ -1405,9 +1408,42 @@ function filterVendasByPeriod(vendas, period) {
     } else if (period === 'mes') {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       return d >= monthStart && d <= todayEnd;
+    } else if (period === 'custom' && state.customRange) {
+      return d >= state.customRange.start && d <= state.customRange.end;
     }
     return true;
   });
+}
+
+// "YYYY-MM-DD" (date input value) -> local Date, avoiding the UTC shift of new Date(string)
+function parseDateInput(value) {
+  const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+function applyCustomPeriod() {
+  const startEl = $('#custom-start');
+  const endEl = $('#custom-end');
+  const errEl = $('#custom-period-error');
+  const start = parseDateInput(startEl.value);
+  const end = parseDateInput(endEl.value);
+
+  if (!start || !end) {
+    errEl.textContent = 'Preencha as duas datas.';
+    return;
+  }
+  if (start > end) {
+    errEl.textContent = 'A data inicial não pode ser depois da data final.';
+    return;
+  }
+
+  errEl.textContent = '';
+  end.setHours(23, 59, 59, 999);
+  state.customRange = { start, end };
+  state.periodFilter = 'custom';
+  state.ordersPage = 1;
+  fetchKPIs();
 }
 
 // Global function to open chat from orders table
@@ -1506,6 +1542,10 @@ async function fetchKPIs() {
     else if (state.periodFilter === 'ontem') periodPrefix = "Ontem";
     else if (state.periodFilter === '7dias') periodPrefix = "Nos últimos 7 dias";
     else if (state.periodFilter === 'mes') periodPrefix = "Neste mês";
+    else if (state.periodFilter === 'custom' && state.customRange) {
+      const fmt = (d) => d.toLocaleDateString('pt-BR');
+      periodPrefix = `De ${fmt(state.customRange.start)} a ${fmt(state.customRange.end)}`;
+    }
 
     if (summaryText) {
       summaryText.innerHTML = `${periodPrefix} foram feitos <strong style="color: #ffffff;">${totalDisparos} disparos</strong>, gerando <strong style="color: #2ec4b6;">${vendasConvertidas} ${vendasConvertidas === 1 ? 'venda' : 'vendas'}</strong> e <strong style="color: #ffcc00;">${faturamentoStr}</strong> de faturamento (Conversão: <strong style="color: #ff6b6b;">${taxaConversaoStr}</strong>).`;
@@ -2077,15 +2117,33 @@ function initChat() {
 
   // Period filter buttons
   const periodBtns = $$('.period-btn');
+  const customPanel = $('#custom-period-panel');
   periodBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       periodBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+
+      if (btn.dataset.period === 'custom') {
+        // Show the range picker; results only change once "Aplicar período" is clicked
+        const startEl = $('#custom-start');
+        const endEl = $('#custom-end');
+        const today = new Date();
+        const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        endEl.max = startEl.max = iso(today);
+        if (!startEl.value) startEl.value = iso(new Date(today.getFullYear(), today.getMonth(), 1));
+        if (!endEl.value) endEl.value = iso(today);
+        customPanel.classList.remove('hidden');
+        return;
+      }
+
+      customPanel.classList.add('hidden');
       state.periodFilter = btn.dataset.period;
       state.ordersPage = 1;
       fetchKPIs();
     });
   });
+  const btnCustomApply = $('#btn-custom-apply');
+  if (btnCustomApply) btnCustomApply.addEventListener('click', applyCustomPeriod);
 
   // Default view
   switchView('dashboard');

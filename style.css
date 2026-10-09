@@ -2882,6 +2882,53 @@ input, button {
 }
 
 /* =============================================
+   CUSTOM PERIOD FILTER (Dashboard)
+   ============================================= */
+.custom-period-panel {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.custom-period-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.custom-period-field input[type="date"] {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color-scheme: dark;
+}
+
+.custom-period-error {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--accent);
+  min-height: 0;
+}
+.custom-period-error:empty {
+  display: none;
+}
+
+/* =============================================
    RESEND TO LEAD BASE (Configurações)
    ============================================= */
 .resend-note {
@@ -3086,6 +3133,28 @@ input, button {
 
   .import-actions button {
     width: 100%;
+    justify-content: center;
+  }
+
+  /* 4 period buttons must fit the row without a horizontal scrollbar */
+  .period-filters {
+    overflow-x: visible;
+    width: 100%;
+  }
+
+  .period-btn {
+    flex: 1;
+    padding: 6px 4px;
+    font-size: 0.74rem;
+    white-space: nowrap;
+  }
+
+  .custom-period-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .custom-period-panel .kpi-refresh-btn {
     justify-content: center;
   }
 }
